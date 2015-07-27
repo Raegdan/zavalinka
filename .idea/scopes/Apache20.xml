@@ -1,0 +1,3 @@
+<component name="DependencyValidationManager">
+  <scope name="Apache20" pattern="src[app]:org.raegdan.zavalinka.Routines" />
+</component>

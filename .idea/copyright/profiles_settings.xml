@@ -1,3 +1,7 @@
 <component name="CopyrightManager">
-  <settings default="Zavalinka" />
+  <settings default="Zavalinka">
+    <module2copyright>
+      <element module="Apache20" copyright="Zavalinka-Apache20" />
+    </module2copyright>
+  </settings>
 </component>
