@@ -20,6 +20,8 @@
 package org.raegdan.zavalinka;
 
 import android.app.Activity;
+import android.app.ProgressDialog;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -31,6 +33,7 @@ public class AuthActivity extends Activity implements View.OnClickListener {
 
     EditText etLoginField, etPasswdField;
     Button btnLogin;
+    XMPPConnectionKeeper mKeeper;
 
     /**
      * Binds activity Views to class fields and methods.
@@ -48,7 +51,13 @@ public class AuthActivity extends Activity implements View.OnClickListener {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_auth);
 
+        mKeeper = XMPPConnectionKeeper.getInstance();
+
         initGui();
+
+        if (loadSavedCredentials()) {
+            login(etLoginField.getText().toString(), etPasswdField.getText().toString());
+        }
 
     }
 
@@ -74,12 +83,42 @@ public class AuthActivity extends Activity implements View.OnClickListener {
         return super.onOptionsItemSelected(item);
     }
 
-    private Boolean login(String login, String passwd) {
-        Boolean success = false;
+    private void login(String login, String passwd) {
+        mKeeper.setLogin(login, this);
+        mKeeper.setPasswd(passwd, this);
 
+        new LoginTask(this, mKeeper).execute();
+    }
 
+    protected void postLogin(Boolean success) {
 
-        return success;
+    }
+
+    public void onBtnLoginClick() {
+        String login = etLoginField.getText().toString();
+        String passwd = etPasswdField.getText().toString();
+
+        if (!Routines.stringsContainData(login, passwd)) {
+            Routines.toast(this, getString(R.string.please_fill_credentials));
+            return;
+        }
+
+        login(login, passwd);
+    }
+
+    private boolean loadSavedCredentials() {
+        String login = mKeeper.getSavedLogin(getApplicationContext());
+        String passwd = mKeeper.getSavedPasswd(getApplicationContext());
+
+        if (Routines.stringsContainData(login, passwd)) {
+            etLoginField.setText(login);
+            etPasswdField.setText(passwd);
+
+            return true;
+        } else {
+            return false;
+        }
+
     }
 
     /**
@@ -91,8 +130,54 @@ public class AuthActivity extends Activity implements View.OnClickListener {
     public void onClick(View v) {
         switch (v.getId()) {
             case R.id.btnLogin:
-                // TODO handler
+                onBtnLoginClick();
                 break;
+        }
+    }
+
+    private class LoginTask extends AsyncTask<Void, Void, Boolean> {
+
+        private XMPPConnectionKeeper mKeeper = null;
+        private Activity mCallingActivity = null;
+
+
+        public LoginTask(Activity callingActivity, XMPPConnectionKeeper keeper) {
+            this.mCallingActivity = callingActivity;
+            this.mKeeper = keeper;
+        }
+
+        @Override
+        protected void onPreExecute() {
+            super.onPreExecute();
+            ProgressDialog d = new ProgressDialog(mCallingActivity);
+            d.setCancelable(false);
+            d.setMessage(getString(R.string.logging_in_progress_msg));
+            d.show();
+        }
+
+        /**
+         * Override this method to perform a computation on a background thread. The
+         * specified parameters are the parameters passed to {@link #execute}
+         * by the mCaller of this task.
+         * <p/>
+         * This method can call {@link #publishProgress} to publish updates
+         * on the UI thread.
+         *
+         * @param params The parameters of the task.
+         * @return A result, defined by the subclass of this task.
+         * @see #onPreExecute()
+         * @see #onPostExecute
+         * @see #publishProgress
+         */
+        @Override
+        protected Boolean doInBackground(Void... params) {
+            return mKeeper.login();
+        }
+
+        @Override
+        protected void onPostExecute(Boolean aBoolean) {
+            super.onPostExecute(aBoolean);
+            postLogin(aBoolean);
         }
     }
 }

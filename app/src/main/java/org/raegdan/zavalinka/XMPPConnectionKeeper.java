@@ -19,6 +19,9 @@
 
 package org.raegdan.zavalinka;
 
+import android.content.Context;
+import android.content.SharedPreferences;
+
 import org.jivesoftware.smack.AbstractXMPPConnection;
 import org.jivesoftware.smack.SmackException;
 import org.jivesoftware.smack.XMPPException;
@@ -36,71 +39,103 @@ import java.io.IOException;
 
 public class XMPPConnectionKeeper {
 
-    /**
-     * To be thrown on attempts to use unconfigured mConnection.
+    /*
+     *   P U B L I C   P A R T
      */
-    private class ConnectionNotConfiguredException extends Exception {
-        public ConnectionNotConfiguredException(String detailMessage) {
-            super(detailMessage);
-        }
-    }
 
-
+    // Constants
     private final static String SERVER_ADDRESS = "raegdan.org";
+    private final static String DOMAIN = SERVER_ADDRESS;
     private final static int STANDARD_XMPP_PORT = 5222;
+    private final static String KEY_LOGIN = "login";
+    private final static String KEY_PASSWD = "passwd";
+    // Singleton instance
+    private static XMPPConnectionKeeper ourInstance = new XMPPConnectionKeeper();
 
 
-    private static final int ERROR_GENERAL = 1;
-    private static final int ERROR_CONNECTION_NOT_CONFIGURED = 2;
-
+    /*
+     *   P R I V A T E   P A R T
+     */
     private AbstractXMPPConnection mConnection;
-
     // Class state flags
     private Boolean mConnectionConfigured = false;
     private Boolean mConnectionConnected = false;
-
-
-    private static XMPPConnectionKeeper ourInstance = new XMPPConnectionKeeper();
-
-    public static XMPPConnectionKeeper getInstance() {
-        return ourInstance;
-    }
+    // Account credentials
+    private String mLogin = "";
+    private String mPasswd = "";
 
     private XMPPConnectionKeeper() {
 
     }
 
-    /**
-     * Simplified variant of configureConnection().
-     * Assumes: domain = server = SERVER_ADDRESS ; tcpPort = STANDARD_XMPP_PORT
-     *
-     * @param login     Username. Assuming "johndoe@doefamily.com" : "johndoe".
-     * @param passwd    Password.
-     */
-    private void configureConnection(String login, String passwd) {
-        configureConnection(login, passwd, SERVER_ADDRESS, SERVER_ADDRESS, STANDARD_XMPP_PORT);
+    public static XMPPConnectionKeeper getInstance() {
+        return ourInstance;
     }
 
-    /**
-     * Configure connection parameters
-     *
-     * @param login     Username. Assuming "johndoe@doefamily.com" : "johndoe".
-     * @param passwd    Password.
-     * @param domain    Domain. Assuming "johndoe@doefamily.com" : "doefamily.com".
-     * @param server    XMPP server. May differ from domain."johndoe@doefamily.com" may have "john-s-jabber.doefamily.com" or so.
-     * @param tcpPort   TCP port, standard is 5222.
-     */
-    private void configureConnection(String login, String passwd, String domain, String server, int tcpPort) {
+    public void setLogin(String login, Context context) {
+        this.mLogin = login;
+        writeConnectionConfig(context, KEY_LOGIN, login);
+    }
 
-        // TODO disconnect first if connected -- Raegdan
+    public void setPasswd(String passwd, Context context) {
+        this.mPasswd = passwd;
+        writeConnectionConfig(context, KEY_PASSWD, passwd);
+    }
 
-        mConnectionConfigured = false;
+    public String getSavedLogin(Context context) {
+        return readConnectionConfig(context, KEY_LOGIN);
+    }
 
+    public String getSavedPasswd(Context context) {
+        return readConnectionConfig(context, KEY_PASSWD);
+    }
+
+    public Boolean login() {
+        if (!mConnectionConfigured) try {
+            configureConnection();
+        } catch (ConnectionConfigurationException e) {
+            e.printStackTrace();
+            return false;
+        }
+
+        if (mConnectionConnected) try {
+            disconnect();
+        } catch (ConnectionNotConfiguredException e) {
+            e.printStackTrace();
+            return false;
+        }
+
+        try {
+            connect();
+        } catch (Exception e) {
+            e.printStackTrace();
+            return false;
+        }
+
+        return true;
+    }
+
+    private void configureConnection() throws ConnectionConfigurationException {
+
+        if (mConnectionConnected) {
+            try {
+                disconnect();
+            } catch (ConnectionNotConfiguredException e) {
+                // Should never occur unless static bug
+                e.printStackTrace();
+            }
+        }
+
+        if (mConnectionConfigured) mConnectionConfigured = false;
+
+        if (!Routines.stringsContainData(mLogin, mPasswd)) {
+            throw new ConnectionConfigurationException("Please set login and password with respective setters.");
+        }
         XMPPTCPConnectionConfiguration config = XMPPTCPConnectionConfiguration.builder()
-                .setUsernameAndPassword(login, passwd)
-                .setServiceName(domain)
-                .setHost(server)
-                .setPort(tcpPort)
+                .setUsernameAndPassword(mLogin, mPasswd)
+                .setServiceName(DOMAIN)
+                .setHost(SERVER_ADDRESS)
+                .setPort(STANDARD_XMPP_PORT)
 
                 .build();
 
@@ -112,11 +147,11 @@ public class XMPPConnectionKeeper {
     /**
      * Connects mConnection.
      *
-     * @throws ConnectionNotConfiguredException     configureConnection() not called prior to connect() or failed.
-     * @throws IOException                          see XMPPTCPConnection javadocs
-     * @throws XMPPException                        -- // --
-     * @throws SmackException                       -- // --
-     * @throws NullPointerException                 mConnection not initialized!
+     * @throws ConnectionNotConfiguredException configureConnection() not called prior to connect() or failed.
+     * @throws IOException                      see XMPPTCPConnection javadocs
+     * @throws XMPPException                    -- // --
+     * @throws SmackException                   -- // --
+     * @throws NullPointerException             mConnection not initialized!
      */
     private void connect() throws ConnectionNotConfiguredException, IOException, XMPPException, SmackException, NullPointerException {
 
@@ -133,18 +168,18 @@ public class XMPPConnectionKeeper {
         }
 
         mConnection.connect();
+        mConnection.login();
 
         mConnectionConnected = true;
     }
 
     /**
-     *
-     * @throws ConnectionNotConfiguredException     configureConnection() not called prior to connect() or failed.
-     * @throws NullPointerException                 mConnection not initialized!
+     * @throws ConnectionNotConfiguredException configureConnection() not called prior to connect() or failed.
+     * @throws NullPointerException             mConnection not initialized!
      */
-    private void disconnect() throws ConnectionNotConfiguredException, NullPointerException {
-        if (!mConnectionConnected || !mConnectionConfigured) {
-            return;     // Harmless case, throwing exception not needed
+    private void disconnect() throws NullPointerException, ConnectionNotConfiguredException {
+        if (!mConnectionConfigured) {
+            throw new ConnectionNotConfiguredException("Cannot disconnect() unconfigured connection, call configureConnection() first.");
         }
 
         if (mConnection == null) {
@@ -154,5 +189,36 @@ public class XMPPConnectionKeeper {
         mConnection.disconnect();
 
         mConnectionConnected = false;
+    }
+
+    private void writeConnectionConfig(Context context, String key, String value) {
+        writeConnectionConfig(context, key, value, true);
+    }
+
+    private void writeConnectionConfig(Context context, String key, String value, boolean trimValue) {
+        SharedPreferences sp = context.getSharedPreferences(context.getPackageName() + "_" + this.getClass().getSimpleName(), Context.MODE_PRIVATE);
+        SharedPreferences.Editor ed = sp.edit();
+        ed.putString(key, (trimValue) ? value.trim() : value);
+        ed.apply();
+    }
+
+    private String readConnectionConfig(Context context, String key) {
+        SharedPreferences sp = context.getSharedPreferences(context.getPackageName(), Context.MODE_PRIVATE);
+        return sp.getString(key, "");
+    }
+
+    /**
+     * To be thrown on attempts to use unconfigured mConnection.
+     */
+    private class ConnectionNotConfiguredException extends Exception {
+        public ConnectionNotConfiguredException(String detailMessage) {
+            super(detailMessage);
+        }
+    }
+
+    private class ConnectionConfigurationException extends Exception {
+        public ConnectionConfigurationException(String detailMessage) {
+            super(detailMessage);
+        }
     }
 }
