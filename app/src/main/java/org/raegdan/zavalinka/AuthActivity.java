@@ -33,7 +33,7 @@ public class AuthActivity extends Activity implements View.OnClickListener {
 
     EditText etLoginField, etPasswdField;
     Button btnLogin;
-    XMPPConnectionKeeper mKeeper;
+    ZXmppConnectionKeeper mKeeper;
 
     /**
      * Binds activity Views to class fields and methods.
@@ -51,7 +51,7 @@ public class AuthActivity extends Activity implements View.OnClickListener {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_auth);
 
-        mKeeper = XMPPConnectionKeeper.getInstance();
+        mKeeper = ZXmppConnectionKeeper.getInstance();
 
         initGui();
 
@@ -144,11 +144,11 @@ public class AuthActivity extends Activity implements View.OnClickListener {
 
     private class LoginTask extends AsyncTask<Void, Void, Boolean> {
 
-        private XMPPConnectionKeeper mKeeper = null;
+        private ZXmppConnectionKeeper mKeeper = null;
         private Activity mCallingActivity = null;
         private ProgressDialog d;
 
-        public LoginTask(Activity callingActivity, XMPPConnectionKeeper keeper) {
+        public LoginTask(Activity callingActivity, ZXmppConnectionKeeper keeper) {
             this.mCallingActivity = callingActivity;
             this.mKeeper = keeper;
         }

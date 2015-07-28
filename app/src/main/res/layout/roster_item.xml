@@ -17,32 +17,38 @@
   ~ along with this program.  If not, see <http://www.gnu.org/licenses/>.
   -->
 
-<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_margin="@dimen/std_delimiter"
-    android:gravity="center_vertical|left">
+    android:layout_marginBottom="@dimen/minor_delimiter"
+    android:gravity="center_vertical|left"
+    android:orientation="horizontal"
+    android:padding="@dimen/minor_delimiter"
+    android:paddingRight="16dp">
 
     <ImageView
         android:id="@+id/ivRosterItemStatus"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_alignParentBottom="true"
-        android:layout_alignParentLeft="true"
-        android:layout_alignParentTop="true"
-        android:layout_marginRight="@dimen/std_delimiter"
+        android:layout_marginRight="@dimen/minor_delimiter"
+        android:contentDescription="@string/presence_indicator"
         android:src="@android:drawable/presence_offline" />
 
     <TextView
         android:id="@+id/tvRosterItemName"
-        android:layout_width="wrap_content"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_alignParentBottom="true"
-        android:layout_alignParentRight="true"
-        android:layout_alignParentTop="true"
-        android:layout_toRightOf="@id/ivRosterItemStatus"
+        android:layout_marginRight="@dimen/minor_delimiter"
+        android:layout_weight="100"
         android:gravity="center_vertical|left"
         android:text="@string/app_name"
-        android:textAppearance="@android:style/TextAppearance.DeviceDefault.Medium" />
+        android:textAppearance="@android:style/TextAppearance.DeviceDefault" />
 
-</RelativeLayout>
+    <ImageView
+        android:id="@+id/ivRosterItemUnreadIndicator"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:contentDescription="@string/have_unread_indicator"
+        android:src="@android:drawable/sym_action_chat" />
+
+</LinearLayout>

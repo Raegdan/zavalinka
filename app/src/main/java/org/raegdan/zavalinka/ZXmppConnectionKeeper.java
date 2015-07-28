@@ -24,6 +24,7 @@ import android.content.SharedPreferences;
 
 import org.jivesoftware.smack.AbstractXMPPConnection;
 import org.jivesoftware.smack.ConnectionConfiguration;
+import org.jivesoftware.smack.ReconnectionManager;
 import org.jivesoftware.smack.SmackException;
 import org.jivesoftware.smack.XMPPException;
 import org.jivesoftware.smack.roster.Roster;
@@ -39,30 +40,29 @@ import java.io.IOException;
  */
 
 
-public class XMPPConnectionKeeper {
+public class ZXmppConnectionKeeper {
 
-    // Constants
     private final static String SERVER_ADDRESS = "raegdan.org";
     private final static String DOMAIN = SERVER_ADDRESS;
     private final static int STANDARD_XMPP_PORT = 5222;
     private final static String KEY_LOGIN = "login";
     private final static String KEY_PASSWD = "passwd";
-
-    // Singleton instance
-    private static XMPPConnectionKeeper ourInstance = new XMPPConnectionKeeper();
-
+    private static ZXmppConnectionKeeper sInstance = new ZXmppConnectionKeeper();
+    private org.raegdan.zavalinka.ZMessagesStorage mZMessagesStorageInstance;
     private AbstractXMPPConnection mConnection;
-
-    // Account credentials
     private String mLogin = "";
     private String mPasswd = "";
 
-    private XMPPConnectionKeeper() {
-
+    private ZXmppConnectionKeeper() {
+        mZMessagesStorageInstance = new ZMessagesStorage();
     }
 
-    public static XMPPConnectionKeeper getInstance() {
-        return ourInstance;
+    public static ZXmppConnectionKeeper getInstance() {
+        return sInstance;
+    }
+
+    public org.raegdan.zavalinka.ZMessagesStorage getzMessagesStorageInstance() {
+        return mZMessagesStorageInstance;
     }
 
     public void setLogin(String login, Context context) {
@@ -116,7 +116,6 @@ public class XMPPConnectionKeeper {
                 .setServiceName(DOMAIN)
                 .setHost(SERVER_ADDRESS)
                 .setPort(STANDARD_XMPP_PORT)
-
                         // I use self-signed cert, so disabling ssl
                         // To be removed for production
                 .setSecurityMode(ConnectionConfiguration.SecurityMode.disabled)
@@ -124,6 +123,10 @@ public class XMPPConnectionKeeper {
                 .build();
 
         mConnection = new XMPPTCPConnection(config);
+
+        ReconnectionManager rm = ReconnectionManager.getInstanceFor(mConnection);
+        rm.setFixedDelay(10);
+        rm.enableAutomaticReconnection();
 
         Roster r = Roster.getInstanceFor(mConnection);
         r.setRosterLoadedAtLogin(true);

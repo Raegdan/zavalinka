@@ -22,6 +22,8 @@ import android.content.Context;
 import android.util.Log;
 import android.widget.Toast;
 
+import java.util.regex.Pattern;
+
 /**
  * Static library for frequently used routines' aliases.
  * <p/>
@@ -29,9 +31,10 @@ import android.widget.Toast;
  */
 public class Routines {
 
+    private static final Pattern jidResourceStripper = Pattern.compile("/.*$", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE | Pattern.MULTILINE);
     // Debug mode - log to logcat
-    public static final boolean DEBUG = true;
-    public static final String DEBUG_TAG = "Routines.debug()";
+    public static boolean DEBUG = true;
+    public static String DEBUG_TAG = "Routines.debug()";
 
     /**
      * Alias for standard Android toast with SHORT duration.
@@ -71,6 +74,16 @@ public class Routines {
     }
 
     public static void debug(String debugMsg) {
-        if (DEBUG && (debugMsg != null)) Log.d(DEBUG_TAG, debugMsg);
+        if (DEBUG && (debugMsg != null)) {
+            Log.d(DEBUG_TAG, debugMsg);
+        }
+    }
+
+    public static String stripResourceFromJid(String jid) {
+        return jidResourceStripper.matcher(jid).replaceAll("");
+    }
+
+    public static long getUnixTimestamp() {
+        return System.currentTimeMillis() / 1000L;
     }
 }

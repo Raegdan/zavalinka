@@ -20,6 +20,8 @@
 package org.raegdan.zavalinka;
 
 import android.app.Activity;
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
 import android.os.AsyncTask;
 import android.os.Bundle;
@@ -51,7 +53,7 @@ public class MainActivity extends Activity implements AdapterView.OnItemClickLis
 
     private static final int CODE_REQUEST_AUTH = 100;
     ListView lvRoster;
-    private XMPPConnectionKeeper mKeeper;
+    private ZXmppConnectionKeeper mKeeper;
     private AbstractXMPPConnection mConnection;
     private Roster mRoster;
     private SimpleAdapter mRosterAdapter;
@@ -62,7 +64,6 @@ public class MainActivity extends Activity implements AdapterView.OnItemClickLis
 
         lvRoster.setOnItemClickListener(this);
     }
-
 
     @Override
     public void entriesAdded(Collection<String> addresses) {
@@ -94,7 +95,7 @@ public class MainActivity extends Activity implements AdapterView.OnItemClickLis
     }
 
     private void initStage1() {
-        mKeeper = XMPPConnectionKeeper.getInstance();
+        mKeeper = ZXmppConnectionKeeper.getInstance();
         mConnection = mKeeper.getConnection();
 
         if (mConnection == null || !mConnection.isAuthenticated()) {
@@ -178,25 +179,102 @@ public class MainActivity extends Activity implements AdapterView.OnItemClickLis
 
     }
 
-    private class RosterPresenceComparator implements Comparator<Map<String, Object>> {
+    private class MessageEventReceiver extends BroadcastReceiver {
 
-        @Override
-        public int compare(Map<String, Object> lhs, Map<String, Object> rhs) {
-            return ((Integer) rhs.get("status_prio")).compareTo((Integer) lhs.get("status_prio"));
+        public void onReceive(Context context, Intent intent) {
+
         }
     }
 
-    private class RosterAlphabeticComparator implements Comparator<Map<String, Object>> {
+    private abstract class RosterTask<Params, Progress, Result> extends AsyncTask<Params, Progress, Result> {
+        private Map<String, Object> createBlankRosterEntry() {
+            Map<String, Object> result = new HashMap<String, Object>();
+            result.put("name", "");
+            result.put("status_image", android.R.drawable.presence_offline);
+            result.put("unread_image", 0);
+            result.put("is_online", false);
+            result.put("has_unread", false);
+            return result;
+        }
 
-        @Override
-        public int compare(Map<String, Object> lhs, Map<String, Object> rhs) {
-            return ((String) lhs.get("name")).compareTo((String) rhs.get("name"));
+        protected Map<String, Object> updateRosterEntry(Map<String, Object> stub, String name, Presence presence, Boolean hasUnreadMessages) {
+            Map<String, Object> result =
+                    (stub == null) ? createBlankRosterEntry() : stub;
+
+            if (name != null)
+                result.put("name", name);
+
+            if (presence != null) {
+                if (presence.getType() == Presence.Type.available) {
+                    result.put("status_image", android.R.drawable.presence_online);
+                    result.put("is_online", true);
+                } else {
+                    result.put("status_image", android.R.drawable.presence_offline);
+                    result.put("is_online", false);
+                }
+            }
+
+            if (hasUnreadMessages != null) {
+                if (hasUnreadMessages) {
+                    result.put("unread_image", android.R.drawable.sym_action_chat);
+                    result.put("has_unread", true);
+                } else {
+                    result.put("unread_image", 0);
+                    result.put("has_unread", false);
+                }
+            }
+
+            return result;
+        }
+
+        protected void sortRosterList(List<Map<String, Object>> rosterList) {
+            Collections.sort(rosterList, new RosterAlphabeticComparator());
+            Collections.sort(rosterList, new RosterPresenceComparator());
+            Collections.sort(rosterList, new RosterUnreadComparator());
+        }
+
+        private class RosterPresenceComparator implements Comparator<Map<String, Object>> {
+
+            @Override
+            public int compare(Map<String, Object> lhs, Map<String, Object> rhs) {
+                return ((Boolean) rhs.get("is_online")).compareTo((Boolean) lhs.get("is_online"));
+            }
+        }
+
+        private class RosterUnreadComparator implements Comparator<Map<String, Object>> {
+
+            @Override
+            public int compare(Map<String, Object> lhs, Map<String, Object> rhs) {
+                return ((Boolean) rhs.get("has_unread")).compareTo((Boolean) lhs.get("has_unread"));
+            }
+        }
+
+        private class RosterAlphabeticComparator implements Comparator<Map<String, Object>> {
+
+            @Override
+            public int compare(Map<String, Object> lhs, Map<String, Object> rhs) {
+                return ((String) lhs.get("name")).compareTo((String) rhs.get("name"));
+            }
         }
     }
 
-    private class LoadRosterTask extends AsyncTask<Void, Void, Void> {
+    private class LoadRosterTask extends RosterTask<Void, Void, Void> {
 
-        @Override
+        private boolean isSubscribedTo(RosterEntry entry) {
+            return ((entry.getType() == RosterPacket.ItemType.none || entry.getType() == RosterPacket.ItemType.from)
+                    && (entry.getStatus() != RosterPacket.ItemStatus.subscribe && entry.getStatus() != RosterPacket.ItemStatus.SUBSCRIPTION_PENDING));
+        }
+
+        private void sendSubcriptionRequest(RosterEntry entry) {
+            Presence p = new Presence(Presence.Type.subscribe);
+            p.setTo(entry.getUser());
+            try {
+                mConnection.sendStanza(p);
+            } catch (SmackException.NotConnectedException e) {
+                e.printStackTrace();
+            }
+        }
+
         protected Void doInBackground(Void... params) {
 
             try {
@@ -206,44 +284,16 @@ public class MainActivity extends Activity implements AdapterView.OnItemClickLis
             }
 
             for (RosterEntry entry : mRoster.getEntries()) {
-                Map<String, Object> rosterEntryMap = new HashMap<String, Object>();
 
-                rosterEntryMap.put("name", entry.getUser());
+                if (!isSubscribedTo(entry)) sendSubcriptionRequest(entry);
 
-                Integer statusImage;
-                Integer statusPrio;
-                if (mRoster.getPresence(entry.getUser()).getType() == Presence.Type.available) {
-                    statusImage = android.R.drawable.presence_online;
-                    statusPrio = 100;
-                } else {
-                    statusImage = android.R.drawable.presence_offline;
-                    statusPrio = 0;
-                }
-
-                if ((entry.getType() == RosterPacket.ItemType.none || entry.getType() == RosterPacket.ItemType.from)
-                        && (entry.getStatus() != RosterPacket.ItemStatus.subscribe && entry.getStatus() != RosterPacket.ItemStatus.SUBSCRIPTION_PENDING)) {
-
-                    Presence p = new Presence(Presence.Type.subscribe);
-                    p.setTo(entry.getUser());
-                    try {
-                        mConnection.sendStanza(p);
-                    } catch (SmackException.NotConnectedException e) {
-                        e.printStackTrace();
-                    }
-                }
-
-                rosterEntryMap.put("status", statusImage);
-                rosterEntryMap.put("status_prio", statusPrio);
-
+                Map<String, Object> rosterEntryMap = super.updateRosterEntry(null, entry.getUser(), mRoster.getPresence(entry.getUser()), null);
                 mRosterList.add(rosterEntryMap);
 
                 publishProgress();
             }
 
-            Collections.sort(mRosterList, new RosterAlphabeticComparator());
-            publishProgress();
-
-            Collections.sort(mRosterList, new RosterPresenceComparator());
+            sortRosterList(mRosterList);
             publishProgress();
 
             return null;
@@ -257,7 +307,7 @@ public class MainActivity extends Activity implements AdapterView.OnItemClickLis
         }
     }
 
-    private class UpdatePresenceTask extends AsyncTask<Presence, Void, Void> {
+    private class UpdatePresenceTask extends RosterTask<Presence, Void, Void> {
 
         private int findEntry(String name) {
             for (int i = 0; i < mRosterList.size(); i++) {
@@ -271,39 +321,18 @@ public class MainActivity extends Activity implements AdapterView.OnItemClickLis
 
         @Override
         protected Void doInBackground(Presence... params) {
-            String nameWithoutResource = params[0].getFrom().replaceAll("/.*$", "");
-
-            Routines.debug("UpdatePresenceTask.doInBackground() started, name = " + nameWithoutResource);
+            String nameWithoutResource = Routines.stripResourceFromJid(params[0].getFrom());
 
             int i = findEntry(nameWithoutResource);
-            Routines.debug("UpdatePresenceTask.doInBackground(): i = " + Integer.toString(i));
 
             if (i < 0) return null;
 
-            Presence p = mRoster.getPresence(params[0].getFrom());
-
-            Integer statusImage;
-            Integer statusPrio;
-            if (p.getType() == Presence.Type.available) {
-                statusImage = android.R.drawable.presence_online;
-                statusPrio = 100;
-            } else {
-                statusImage = android.R.drawable.presence_offline;
-                statusPrio = 0;
-            }
-
-            Map<String, Object> entry = mRosterList.get(i);
-            entry.put("status", statusImage);
-            entry.put("status_prio", statusPrio);
-
+            Presence bestPresence = mRoster.getPresence(params[0].getFrom());
+            Map<String, Object> updatedEntry = super.updateRosterEntry(mRosterList.get(i), null, bestPresence, null);
+            mRosterList.set(i, updatedEntry);
             publishProgress();
 
-            Collections.sort(mRosterList, new RosterAlphabeticComparator());
-            publishProgress();
-
-            Collections.sort(mRosterList, new RosterPresenceComparator());
-            publishProgress();
-
+            super.sortRosterList(mRosterList);
             publishProgress();
 
             return null;

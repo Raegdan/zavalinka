@@ -31,19 +31,24 @@ import org.jivesoftware.smack.ConnectionListener;
 import org.jivesoftware.smack.SmackException;
 import org.jivesoftware.smack.StanzaListener;
 import org.jivesoftware.smack.XMPPConnection;
-import org.jivesoftware.smack.chat.Chat;
-import org.jivesoftware.smack.chat.ChatManager;
-import org.jivesoftware.smack.chat.ChatManagerListener;
 import org.jivesoftware.smack.filter.StanzaTypeFilter;
 import org.jivesoftware.smack.packet.Message;
 import org.jivesoftware.smack.packet.Stanza;
 
-public class PersistentConnection extends Service implements ConnectionListener, StanzaListener, ChatManagerListener {
+public class PersistentConnection extends Service implements ConnectionListener, StanzaListener {
 
     public static final int FOREGROUND_NOTIFICATION_ID = 200;
+    private Notification ONLINE_NOTIFICATION, ONLINE_NOAUTH_NOTIFICATION, DISCONNECTED_NOTIFICATION, RECONNECT_FAILED_NOTIFICATION;
+    private AbstractXMPPConnection mConnecton;
+    private ZXmppConnectionKeeper mKeeper;
 
     public PersistentConnection() {
 
+    }
+
+    private void updateForegroundNotification(Notification n) {
+        NotificationManager nm = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+        nm.notify(FOREGROUND_NOTIFICATION_ID, n);
     }
 
     private Notification buildForegroundNotification(int iconId, int textId) {
@@ -66,18 +71,18 @@ public class PersistentConnection extends Service implements ConnectionListener,
     public int onStartCommand(Intent intent, int flags, int startId) {
         Routines.debug("onStartCommand()");
 
-        startForeground(FOREGROUND_NOTIFICATION_ID, buildForegroundNotification(android.R.drawable.presence_online, R.string.online));
+        ONLINE_NOTIFICATION = buildForegroundNotification(android.R.drawable.presence_online, R.string.online);
+        ONLINE_NOAUTH_NOTIFICATION = buildForegroundNotification(android.R.drawable.presence_offline, R.string.online_noauth);
+        DISCONNECTED_NOTIFICATION = buildForegroundNotification(android.R.drawable.presence_offline, R.string.disconnected);
+        RECONNECT_FAILED_NOTIFICATION = buildForegroundNotification(android.R.drawable.presence_offline, R.string.reconnect_failed);
 
-        XMPPConnectionKeeper keeper = XMPPConnectionKeeper.getInstance();
-        AbstractXMPPConnection connection = keeper.getConnection();
+        startForeground(FOREGROUND_NOTIFICATION_ID, ONLINE_NOTIFICATION);
 
-        connection.addConnectionListener(this);
-        connection.addAsyncStanzaListener(this, new StanzaTypeFilter(Message.class));
+        mKeeper = ZXmppConnectionKeeper.getInstance();
+        mConnecton = mKeeper.getConnection();
 
-        ChatManager chatManager = ChatManager.getInstanceFor(connection);
-        chatManager.setMatchMode(ChatManager.MatchMode.BARE_JID);
-        chatManager.addChatListener(this);
-//        chatManager.
+        mConnecton.addConnectionListener(this);
+        mConnecton.addAsyncStanzaListener(this, new StanzaTypeFilter(Message.class));
 
         return START_STICKY;
     }
@@ -98,8 +103,11 @@ public class PersistentConnection extends Service implements ConnectionListener,
      */
     @Override
     public void connected(XMPPConnection connection) {
-        NotificationManager nm = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
-        nm.notify(FOREGROUND_NOTIFICATION_ID, buildForegroundNotification(android.R.drawable.presence_offline, R.string.online_noauth));
+        updateForegroundNotification(
+                (connection.isAuthenticated()) ?
+                        ONLINE_NOTIFICATION :
+                        ONLINE_NOAUTH_NOTIFICATION
+        );
     }
 
     /**
@@ -110,8 +118,7 @@ public class PersistentConnection extends Service implements ConnectionListener,
      */
     @Override
     public void authenticated(XMPPConnection connection, boolean resumed) {
-        NotificationManager nm = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
-        nm.notify(FOREGROUND_NOTIFICATION_ID, buildForegroundNotification(android.R.drawable.presence_online, R.string.online));
+        updateForegroundNotification(ONLINE_NOTIFICATION);
     }
 
     /**
@@ -119,8 +126,7 @@ public class PersistentConnection extends Service implements ConnectionListener,
      */
     @Override
     public void connectionClosed() {
-        NotificationManager nm = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
-        nm.notify(FOREGROUND_NOTIFICATION_ID, buildForegroundNotification(android.R.drawable.presence_offline, R.string.disconnected));
+        updateForegroundNotification(DISCONNECTED_NOTIFICATION);
     }
 
     /**
@@ -132,8 +138,7 @@ public class PersistentConnection extends Service implements ConnectionListener,
      */
     @Override
     public void connectionClosedOnError(Exception e) {
-        NotificationManager nm = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
-        nm.notify(FOREGROUND_NOTIFICATION_ID, buildForegroundNotification(android.R.drawable.presence_offline, R.string.disconnected));
+        updateForegroundNotification(DISCONNECTED_NOTIFICATION);
     }
 
     /**
@@ -142,8 +147,7 @@ public class PersistentConnection extends Service implements ConnectionListener,
      */
     @Override
     public void reconnectionSuccessful() {
-        NotificationManager nm = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
-        nm.notify(FOREGROUND_NOTIFICATION_ID, buildForegroundNotification(android.R.drawable.presence_offline, R.string.online_noauth));
+        updateForegroundNotification(ONLINE_NOTIFICATION);
     }
 
     @Override
@@ -153,23 +157,44 @@ public class PersistentConnection extends Service implements ConnectionListener,
 
     @Override
     public void reconnectionFailed(Exception e) {
-        NotificationManager nm = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
-        nm.notify(FOREGROUND_NOTIFICATION_ID, buildForegroundNotification(android.R.drawable.presence_offline, R.string.reconnect_failed));
+        updateForegroundNotification(RECONNECT_FAILED_NOTIFICATION);
+    }
+
+    private void processMessage(Message m) {
+        ZMessagesStorage ms = mKeeper.getzMessagesStorageInstance();
+
+        String account = Routines.stripResourceFromJid(mConnecton.getUser());
+        String from = Routines.stripResourceFromJid(m.getFrom());
+        String to = Routines.stripResourceFromJid(m.getTo());
+
+        String remote;
+        int direction;
+        if (!to.equalsIgnoreCase(account) && from.equalsIgnoreCase(account)) {
+            remote = to;
+            direction = ZMessage.DIRECTION_OUTGOING;
+
+        } else if (!from.equalsIgnoreCase(account) && to.equalsIgnoreCase(account)) {
+            remote = from;
+            direction = ZMessage.DIRECTION_INCOMING;
+
+        } else if (!to.equalsIgnoreCase(account) && !from.equalsIgnoreCase(account)) {
+            // This is not our message
+            // TODO may be it's a JID alias?
+            return;
+
+        } else {
+            // Some other weird message
+            return;
+        }
+
+        ms.getAccountMessages(account).putMessage(new ZMessage(Routines.getUnixTimestamp(), remote, direction, m.getBody()));
+        Routines.debug("PersistentConnection.processMessage(): add account=" + account + " remote=" + remote + "direction=" + Integer.toString(direction) + " text=" + m.getBody());
     }
 
     @Override
     public void processPacket(Stanza packet) throws SmackException.NotConnectedException {
-
-    }
-
-    /**
-     * Event fired when a new chat is created.
-     *
-     * @param chat           the chat that was created.
-     * @param createdLocally true if the chat was created by the local user and false if it wasn't.
-     */
-    @Override
-    public void chatCreated(Chat chat, boolean createdLocally) {
-
+        if (packet.getClass() == Message.class) {
+            processMessage((Message) packet);
+        }
     }
 }

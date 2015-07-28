@@ -20,4 +20,6 @@
     <string name="reconnect_failed">reconnecting...</string>
     <string name="action_exit">Exit</string>
     <string name="action_logoff">Exit and logoff</string>
+    <string name="presence_indicator">Presence indicator</string>
+    <string name="have_unread_indicator">Have unread messages indicator</string>
 </resources>
