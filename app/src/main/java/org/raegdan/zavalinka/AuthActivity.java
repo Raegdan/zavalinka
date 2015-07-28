@@ -91,7 +91,14 @@ public class AuthActivity extends Activity implements View.OnClickListener {
     }
 
     protected void postLogin(Boolean success) {
+        if (!success) {
+            Routines.toast(this, getString(R.string.login_failed));
+            return;
+        }
 
+        Routines.toast(this, getString(R.string.login_succeeded));
+        this.setResult(RESULT_OK);
+        this.finish();
     }
 
     public void onBtnLoginClick() {
@@ -107,8 +114,8 @@ public class AuthActivity extends Activity implements View.OnClickListener {
     }
 
     private boolean loadSavedCredentials() {
-        String login = mKeeper.getSavedLogin(getApplicationContext());
-        String passwd = mKeeper.getSavedPasswd(getApplicationContext());
+        String login = mKeeper.getSavedLogin(this);
+        String passwd = mKeeper.getSavedPasswd(this);
 
         if (Routines.stringsContainData(login, passwd)) {
             etLoginField.setText(login);
@@ -139,7 +146,7 @@ public class AuthActivity extends Activity implements View.OnClickListener {
 
         private XMPPConnectionKeeper mKeeper = null;
         private Activity mCallingActivity = null;
-
+        private ProgressDialog d;
 
         public LoginTask(Activity callingActivity, XMPPConnectionKeeper keeper) {
             this.mCallingActivity = callingActivity;
@@ -149,26 +156,12 @@ public class AuthActivity extends Activity implements View.OnClickListener {
         @Override
         protected void onPreExecute() {
             super.onPreExecute();
-            ProgressDialog d = new ProgressDialog(mCallingActivity);
+            d = new ProgressDialog(mCallingActivity);
             d.setCancelable(false);
             d.setMessage(getString(R.string.logging_in_progress_msg));
             d.show();
         }
 
-        /**
-         * Override this method to perform a computation on a background thread. The
-         * specified parameters are the parameters passed to {@link #execute}
-         * by the mCaller of this task.
-         * <p/>
-         * This method can call {@link #publishProgress} to publish updates
-         * on the UI thread.
-         *
-         * @param params The parameters of the task.
-         * @return A result, defined by the subclass of this task.
-         * @see #onPreExecute()
-         * @see #onPostExecute
-         * @see #publishProgress
-         */
         @Override
         protected Boolean doInBackground(Void... params) {
             return mKeeper.login();
@@ -177,6 +170,7 @@ public class AuthActivity extends Activity implements View.OnClickListener {
         @Override
         protected void onPostExecute(Boolean aBoolean) {
             super.onPostExecute(aBoolean);
+            d.dismiss();
             postLogin(aBoolean);
         }
     }

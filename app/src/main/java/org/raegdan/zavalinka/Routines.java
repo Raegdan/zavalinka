@@ -19,6 +19,7 @@
 package org.raegdan.zavalinka;
 
 import android.content.Context;
+import android.util.Log;
 import android.widget.Toast;
 
 /**
@@ -27,6 +28,11 @@ import android.widget.Toast;
  * Created by raegdan on 27.07.15.
  */
 public class Routines {
+
+    // Debug mode - log to logcat
+    public static final boolean DEBUG = true;
+    public static final String DEBUG_TAG = "Routines.debug()";
+
     /**
      * Alias for standard Android toast with SHORT duration.
      *
@@ -62,5 +68,9 @@ public class Routines {
         }
 
         return true;
+    }
+
+    public static void debug(String debugMsg) {
+        if (DEBUG && (debugMsg != null)) Log.d(DEBUG_TAG, debugMsg);
     }
 }

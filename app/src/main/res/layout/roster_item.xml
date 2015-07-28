@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?><!--
+  ~ Zavalinka - simple IM developed as an employment challenge.
+  ~ Copyright © Kirill «Raegdan» Fomchenko, 2015. All rights reserved.
+  ~ Email: raegdan-at-raegdan-dot-org.
+  ~
+  ~ This program is free software: you can redistribute it and/or modify
+  ~ it under the terms of the GNU General Public License as published by
+  ~ the Free Software Foundation, either version 3 of the License, or
+  ~ (at your option) any later version.
+  ~
+  ~ This program is distributed in the hope that it will be useful,
+  ~ but WITHOUT ANY WARRANTY; without even the implied warranty of
+  ~ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  ~ GNU General Public License for more details.
+  ~
+  ~ You should have received a copy of the GNU General Public License
+  ~ along with this program.  If not, see <http://www.gnu.org/licenses/>.
+  -->
+
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_margin="@dimen/std_delimiter"
+    android:gravity="center_vertical|left">
+
+    <ImageView
+        android:id="@+id/ivRosterItemStatus"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:layout_alignParentLeft="true"
+        android:layout_alignParentTop="true"
+        android:layout_marginRight="@dimen/std_delimiter"
+        android:src="@android:drawable/presence_offline" />
+
+    <TextView
+        android:id="@+id/tvRosterItemName"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:layout_alignParentRight="true"
+        android:layout_alignParentTop="true"
+        android:layout_toRightOf="@id/ivRosterItemStatus"
+        android:gravity="center_vertical|left"
+        android:text="@string/app_name"
+        android:textAppearance="@android:style/TextAppearance.DeviceDefault.Medium" />
+
+</RelativeLayout>
