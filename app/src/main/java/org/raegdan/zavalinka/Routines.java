@@ -29,32 +29,21 @@ import java.util.regex.Pattern;
  * <p/>
  * Created by raegdan on 27.07.15.
  */
-public class Routines {
+class Routines {
 
     private static final Pattern jidResourceStripper = Pattern.compile("/.*$", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE | Pattern.MULTILINE);
     // Debug mode - log to logcat
-    public static boolean DEBUG = true;
-    public static String DEBUG_TAG = "Routines.debug()";
-
-    /**
-     * Alias for standard Android toast with SHORT duration.
-     *
-     * @param context see javadocs for android.widget.Toast
-     * @param text    see javadocs for android.widget.Toast
-     */
-    public static void toast(Context context, String text) {
-        toast(context, text, Toast.LENGTH_SHORT);
-    }
+    private static boolean DEBUG = true;
+    private static String DEBUG_TAG = "Routines.debug()";
 
     /**
      * Alias for standard Android toast with specified duration.
      *
      * @param context  see javadocs for android.widget.Toast
      * @param text     see javadocs for android.widget.Toast
-     * @param duration see javadocs for android.widget.Toast
      */
-    public static void toast(Context context, String text, int duration) {
-        Toast.makeText(context, text, duration).show();
+    public static void toast(Context context, String text) {
+        Toast.makeText(context, text, Toast.LENGTH_SHORT).show();
     }
 
     /**
@@ -80,10 +69,8 @@ public class Routines {
     }
 
     public static String stripResourceFromJid(String jid) {
+        if (jid == null) return null;
         return jidResourceStripper.matcher(jid).replaceAll("");
     }
 
-    public static long getUnixTimestamp() {
-        return System.currentTimeMillis() / 1000L;
-    }
 }

@@ -35,9 +35,11 @@ import org.jivesoftware.smack.filter.StanzaTypeFilter;
 import org.jivesoftware.smack.packet.Message;
 import org.jivesoftware.smack.packet.Stanza;
 
-public class PersistentConnection extends Service implements ConnectionListener, StanzaListener {
+public class PersistentConnection extends Service implements ConnectionListener {
 
-    public static final int FOREGROUND_NOTIFICATION_ID = 200;
+    public static final int ACTION_START = 0;
+    public static final int ACTION_TERMINATE = -1;
+    private static final int FOREGROUND_NOTIFICATION_ID = 200;
     private Notification ONLINE_NOTIFICATION, ONLINE_NOAUTH_NOTIFICATION, DISCONNECTED_NOTIFICATION, RECONNECT_FAILED_NOTIFICATION;
     private AbstractXMPPConnection mConnecton;
     private ZXmppConnectionKeeper mKeeper;
@@ -67,8 +69,38 @@ public class PersistentConnection extends Service implements ConnectionListener,
                 .getNotification();
     }
 
+    private void sendOfflineBroadcast() {
+        sendBroadcast(new Intent("org.raegdan.zavalinka.CONNECTION_DOWN"));
+    }
+
+    private void sendOnlineBroadcast() {
+        sendBroadcast(new Intent("org.raegdan.zavalinka.CONNECTION_UP"));
+    }
+
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
+        int action = intent.getIntExtra("action", ACTION_START);
+
+        switch (action) {
+            case ACTION_TERMINATE:
+                terminate();
+                break;
+
+            case ACTION_START:
+            default:
+                start();
+                break;
+        }
+
+        return START_STICKY;
+    }
+
+    private void terminate() {
+        this.stopForeground(true);
+        this.stopSelf();
+    }
+
+    private void start() {
         Routines.debug("onStartCommand()");
 
         ONLINE_NOTIFICATION = buildForegroundNotification(android.R.drawable.presence_online, R.string.online);
@@ -82,11 +114,9 @@ public class PersistentConnection extends Service implements ConnectionListener,
         mConnecton = mKeeper.getConnection();
 
         mConnecton.addConnectionListener(this);
-        mConnecton.addAsyncStanzaListener(this, new StanzaTypeFilter(Message.class));
-
-        return START_STICKY;
+        mConnecton.addAsyncStanzaListener(new IncomingMessageListener(), new StanzaTypeFilter(Message.class));
+        mConnecton.addPacketSendingListener(new OutgoingMessageListener(), new StanzaTypeFilter(Message.class));
     }
-
     @Override
     public IBinder onBind(Intent intent) {
         return null;
@@ -103,11 +133,13 @@ public class PersistentConnection extends Service implements ConnectionListener,
      */
     @Override
     public void connected(XMPPConnection connection) {
-        updateForegroundNotification(
-                (connection.isAuthenticated()) ?
-                        ONLINE_NOTIFICATION :
-                        ONLINE_NOAUTH_NOTIFICATION
-        );
+        if (connection.isAuthenticated()) {
+            updateForegroundNotification(ONLINE_NOTIFICATION);
+            sendOnlineBroadcast();
+        } else {
+            updateForegroundNotification(ONLINE_NOAUTH_NOTIFICATION);
+            sendOfflineBroadcast();
+        }
     }
 
     /**
@@ -119,6 +151,7 @@ public class PersistentConnection extends Service implements ConnectionListener,
     @Override
     public void authenticated(XMPPConnection connection, boolean resumed) {
         updateForegroundNotification(ONLINE_NOTIFICATION);
+        sendOnlineBroadcast();
     }
 
     /**
@@ -127,6 +160,7 @@ public class PersistentConnection extends Service implements ConnectionListener,
     @Override
     public void connectionClosed() {
         updateForegroundNotification(DISCONNECTED_NOTIFICATION);
+        sendOfflineBroadcast();
     }
 
     /**
@@ -139,6 +173,7 @@ public class PersistentConnection extends Service implements ConnectionListener,
     @Override
     public void connectionClosedOnError(Exception e) {
         updateForegroundNotification(DISCONNECTED_NOTIFICATION);
+        sendOfflineBroadcast();
     }
 
     /**
@@ -148,6 +183,7 @@ public class PersistentConnection extends Service implements ConnectionListener,
     @Override
     public void reconnectionSuccessful() {
         updateForegroundNotification(ONLINE_NOTIFICATION);
+        sendOnlineBroadcast();
     }
 
     @Override
@@ -158,43 +194,77 @@ public class PersistentConnection extends Service implements ConnectionListener,
     @Override
     public void reconnectionFailed(Exception e) {
         updateForegroundNotification(RECONNECT_FAILED_NOTIFICATION);
+        sendOfflineBroadcast();
     }
 
-    private void processMessage(Message m) {
-        ZMessagesStorage ms = mKeeper.getzMessagesStorageInstance();
+    private void sendUnreadMessageBroadcast(String remoteJid) {
+        Intent broadcast = new Intent("org.raegdan.zavalinka.UNREAD_MESSAGE_EVENT");
+        broadcast.putExtra("remote_jid", remoteJid);
+        broadcast.putExtra("has_unread", 1);
+        sendBroadcast(broadcast);
+    }
 
-        String account = Routines.stripResourceFromJid(mConnecton.getUser());
-        String from = Routines.stripResourceFromJid(m.getFrom());
-        String to = Routines.stripResourceFromJid(m.getTo());
+    private abstract class ZMessageListener implements StanzaListener {
 
-        String remote;
-        int direction;
-        if (!to.equalsIgnoreCase(account) && from.equalsIgnoreCase(account)) {
-            remote = to;
-            direction = ZMessage.DIRECTION_OUTGOING;
+        ZAccountMessages mAccountMessages;
 
-        } else if (!from.equalsIgnoreCase(account) && to.equalsIgnoreCase(account)) {
-            remote = from;
-            direction = ZMessage.DIRECTION_INCOMING;
-
-        } else if (!to.equalsIgnoreCase(account) && !from.equalsIgnoreCase(account)) {
-            // This is not our message
-            // TODO may be it's a JID alias?
-            return;
-
-        } else {
-            // Some other weird message
-            return;
+        ZMessageListener() {
+            String account = Routines.stripResourceFromJid(ZXmppConnectionKeeper.getInstance().getConnection().getUser());
+            mAccountMessages = ZXmppConnectionKeeper.getInstance().getZMessagesStorageInstance().getAccountMessages(account);
         }
 
-        ms.getAccountMessages(account).putMessage(new ZMessage(Routines.getUnixTimestamp(), remote, direction, m.getBody()));
-        Routines.debug("PersistentConnection.processMessage(): add account=" + account + " remote=" + remote + "direction=" + Integer.toString(direction) + " text=" + m.getBody());
+        void addToDb(long timestamp, String remoteJid, int direction, String body) {
+            mAccountMessages.putMessage(new ZMessage(System.currentTimeMillis(), remoteJid, direction, body));
+//            Routines.debug("PersistentConnection.processMessage(): add account=" + account + " remote=" + remote + " direction=" + Integer.toString(direction) + " text=" + body);
+        }
+
+        protected abstract int getDirection();
+
+        protected abstract String getRemoteJid(Message m);
+
+        public void processPacket(Stanza packet) throws SmackException.NotConnectedException {
+            Message m = (Message) packet;
+
+            String account = mAccountMessages.getAccountJid();
+            String remoteJid = getRemoteJid(m);
+            String body = m.getBody();
+
+            if (!Routines.stringsContainData(remoteJid, body)) {
+                return; // Service or inconsistent message
+            }
+
+            if (remoteJid.equalsIgnoreCase(account)) {
+                return; // From me to me? O RLY?
+            }
+
+            addToDb(System.currentTimeMillis(), remoteJid, getDirection(), body);
+            sendUnreadMessageBroadcast(remoteJid);
+        }
     }
 
-    @Override
-    public void processPacket(Stanza packet) throws SmackException.NotConnectedException {
-        if (packet.getClass() == Message.class) {
-            processMessage((Message) packet);
+    private class IncomingMessageListener extends ZMessageListener {
+
+        @Override
+        protected int getDirection() {
+            return ZMessage.DIRECTION_INCOMING;
+        }
+
+        @Override
+        protected String getRemoteJid(Message m) {
+            return Routines.stripResourceFromJid(m.getFrom());
+        }
+    }
+
+    private class OutgoingMessageListener extends ZMessageListener {
+
+        @Override
+        protected int getDirection() {
+            return ZMessage.DIRECTION_OUTGOING;
+        }
+
+        @Override
+        protected String getRemoteJid(Message m) {
+            return Routines.stripResourceFromJid(m.getTo());
         }
     }
 }

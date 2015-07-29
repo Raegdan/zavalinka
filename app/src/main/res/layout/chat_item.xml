@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?><!--
+  ~ Zavalinka - simple IM developed as an employment challenge.
+  ~ Copyright © Kirill «Raegdan» Fomchenko, 2015. All rights reserved.
+  ~ Email: raegdan-at-raegdan-dot-org.
+  ~
+  ~ This program is free software: you can redistribute it and/or modify
+  ~ it under the terms of the GNU General Public License as published by
+  ~ the Free Software Foundation, either version 3 of the License, or
+  ~ (at your option) any later version.
+  ~
+  ~ This program is distributed in the hope that it will be useful,
+  ~ but WITHOUT ANY WARRANTY; without even the implied warranty of
+  ~ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  ~ GNU General Public License for more details.
+  ~
+  ~ You should have received a copy of the GNU General Public License
+  ~ along with this program.  If not, see <http://www.gnu.org/licenses/>.
+  -->
+
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+
+    <!--
+        textSize in dp is OK because it's not a text,
+        but an icon made out uf Unicode symbol - Raegdan
+     -->
+    <TextView
+        android:id="@+id/tvChatItemDirection"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentRight="true"
+        android:layout_alignParentTop="true"
+        android:gravity="center_vertical|right"
+        android:text="@string/symbol_outgoing"
+        android:textAppearance="@android:style/TextAppearance.DeviceDefault.Large"
+        android:textColor="@android:color/holo_green_light"
+        tools:ignore="SpUsage" />
+
+    <TextView
+        android:id="@+id/tvChatItemMisc"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignBottom="@+id/tvChatItemDirection"
+        android:layout_alignParentLeft="true"
+        android:layout_alignParentTop="true"
+        android:layout_marginRight="@dimen/minor_delimiter"
+        android:layout_toLeftOf="@id/tvChatItemDirection"
+        android:ellipsize="end"
+        android:gravity="center_vertical|right"
+        android:maxLines="1"
+        android:text="@string/lorem_ipsum_numbers"
+
+        android:textAppearance="@android:style/TextAppearance.DeviceDefault.Small"
+        android:textStyle="italic" />
+
+    <TextView
+        android:id="@+id/tvChatItemMessageText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentLeft="true"
+        android:layout_alignParentRight="true"
+        android:layout_below="@id/tvChatItemMisc"
+        android:layout_marginTop="@dimen/minor_delimiter"
+        android:gravity="bottom|left"
+        android:text="@string/lorem_ipsum"
+        android:textAppearance="@android:style/TextAppearance.DeviceDefault" />
+
+</RelativeLayout>

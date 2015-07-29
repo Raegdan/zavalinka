@@ -24,13 +24,13 @@ package org.raegdan.zavalinka;
  * <p/>
  * Created by raegdan on 28.07.15.
  */
-public class ZMessage {
+class ZMessage {
     public static final int DIRECTION_INCOMING = 1;
     public static final int DIRECTION_OUTGOING = -1;
-    protected final long mTimestamp;
-    protected final String mRemoteJid;
-    protected final int mDirection;
     protected final String mMessageText;
+    private final long mTimestamp;
+    private final String mRemoteJid;
+    private final int mDirection;
 
     public ZMessage(long timestamp, String remoteJid, int direction, String messageText) {
         this.mTimestamp = timestamp;

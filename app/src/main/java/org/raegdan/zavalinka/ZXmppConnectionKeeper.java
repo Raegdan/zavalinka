@@ -30,6 +30,7 @@ import org.jivesoftware.smack.XMPPException;
 import org.jivesoftware.smack.roster.Roster;
 import org.jivesoftware.smack.tcp.XMPPTCPConnection;
 import org.jivesoftware.smack.tcp.XMPPTCPConnectionConfiguration;
+import org.jivesoftware.smackx.receipts.DeliveryReceiptManager;
 
 import java.io.IOException;
 
@@ -61,7 +62,7 @@ public class ZXmppConnectionKeeper {
         return sInstance;
     }
 
-    public org.raegdan.zavalinka.ZMessagesStorage getzMessagesStorageInstance() {
+    public org.raegdan.zavalinka.ZMessagesStorage getZMessagesStorageInstance() {
         return mZMessagesStorageInstance;
     }
 
@@ -131,6 +132,10 @@ public class ZXmppConnectionKeeper {
         Roster r = Roster.getInstanceFor(mConnection);
         r.setRosterLoadedAtLogin(true);
         r.setSubscriptionMode(Roster.SubscriptionMode.accept_all);
+
+        DeliveryReceiptManager drm = DeliveryReceiptManager.getInstanceFor(mConnection);
+        drm.setAutoReceiptMode(DeliveryReceiptManager.AutoReceiptMode.ifIsSubscribed);
+        drm.autoAddDeliveryReceiptRequests();
     }
 
     /**
@@ -154,13 +159,9 @@ public class ZXmppConnectionKeeper {
     }
 
     private void writeConnectionConfig(Context context, String key, String value) {
-        writeConnectionConfig(context, key, value, true);
-    }
-
-    private void writeConnectionConfig(Context context, String key, String value, boolean trimValue) {
         SharedPreferences sp = context.getSharedPreferences(context.getPackageName() + "_" + this.getClass().getSimpleName(), Context.MODE_PRIVATE);
         SharedPreferences.Editor ed = sp.edit();
-        ed.putString(key, (trimValue) ? value.trim() : value);
+        ed.putString(key, value.trim());
         ed.apply();
     }
 

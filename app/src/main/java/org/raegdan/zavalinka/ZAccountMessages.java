@@ -28,8 +28,8 @@ import java.util.Map;
  * Created by raegdan on 28.07.15.
  */
 public class ZAccountMessages {
-    protected Map<String, ZMessagesThread> mThreadsByRemoteJid;
-    protected String mAccountJid;
+    private Map<String, ZMessagesThread> mThreadsByRemoteJid;
+    private String mAccountJid;
 
     public ZAccountMessages(String accountJid) {
         this.mAccountJid = accountJid.toLowerCase();

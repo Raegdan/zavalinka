@@ -48,7 +48,6 @@
         android:id="@+id/ivRosterItemUnreadIndicator"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:contentDescription="@string/have_unread_indicator"
-        android:src="@android:drawable/sym_action_chat" />
+        android:contentDescription="@string/have_unread_indicator" />
 
 </LinearLayout>

@@ -31,9 +31,10 @@ import android.widget.EditText;
 
 public class AuthActivity extends Activity implements View.OnClickListener {
 
-    EditText etLoginField, etPasswdField;
-    Button btnLogin;
-    ZXmppConnectionKeeper mKeeper;
+    private EditText etLoginField;
+    private EditText etPasswdField;
+    private Button btnLogin;
+    private ZXmppConnectionKeeper mKeeper;
 
     /**
      * Binds activity Views to class fields and methods.
@@ -63,9 +64,7 @@ public class AuthActivity extends Activity implements View.OnClickListener {
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
-        // Inflate the menu; this adds items to the action bar if it is present.
-        getMenuInflater().inflate(R.menu.menu_auth, menu);
-        return true;
+        return false;
     }
 
     @Override
@@ -90,7 +89,7 @@ public class AuthActivity extends Activity implements View.OnClickListener {
         new LoginTask(this, mKeeper).execute();
     }
 
-    protected void postLogin(Boolean success) {
+    private void postLogin(Boolean success) {
         if (!success) {
             Routines.toast(this, getString(R.string.login_failed));
             return;
@@ -101,7 +100,7 @@ public class AuthActivity extends Activity implements View.OnClickListener {
         this.finish();
     }
 
-    public void onBtnLoginClick() {
+    private void onBtnLoginClick() {
         String login = etLoginField.getText().toString();
         String passwd = etPasswdField.getText().toString();
 
